@@ -98,8 +98,20 @@ void MAXreg_wr(BYTE reg, BYTE val)
     SPI_wr ( val );
     Deselect_MAX3421E;
 }
+/* RTOS-aware multiple-byte write */
+void MAXbytes_wr( BYTE reg, BYTE nbytes, BYTE * data )
+{
+    Select_MAX3421E;    //assert SS
+    SPI_wr ( reg + 2 ); //set W/R bit and select register   
+    while( nbytes ) {                
+        SPI_wr( *data );    // send the next data byte
+        data++;             // advance the pointer
+        nbytes--;
+    }
+    Deselect_MAX3421E;  //deassert SS   
+}
 /* Single host register read        */
-BYTE MAXreg_rd(BYTE reg)    
+BYTE MAXreg_rd( BYTE reg )    
 {
  BYTE tmp;
     Select_MAX3421E;
@@ -108,7 +120,18 @@ BYTE MAXreg_rd(BYTE reg)
     Deselect_MAX3421E; 
     return (tmp);
 }
-
+/* RTOS-aware multiple-bytes register read */
+void MAX_bytes_rd ( BYTE reg, BYTE nbytes, BYTE *data )
+{
+    Select_MAX3421E;    //assert SS
+    SPI_wr ( reg );     //send register number
+    while( nbytes ) {
+        *data = SPI_wr ( 0x00 );    //send empty byte, read register contents
+        data++;
+        nbytes--;
+    }
+    Deselect_MAX3421E;  //deassert SS   
+}
 /* reset MAX3421E using chip reset bit. SPI configuration is not affected   */
 void MAX3421E_reset( void )
 {
@@ -194,6 +217,7 @@ void MAX3421E_init( void )
     /* configure host operation */
     MAXreg_wr( rMODE, bmDPPULLDN|bmDMPULLDN|bmSOFKAENAB|bmHOST|bmSEPIRQ );      // set pull-downs, SOF, Host, Separate GPIN IRQ on GPX
     MAXreg_wr( rHIEN, bmFRAMEIE|bmCONDETIE|bmBUSEVENTIE );                      // enable SOF, connection detection, bus event IRQs
+    /* HXFRDNIRQ is checked in Dispatch packet function */
     MAXreg_wr(rHCTL,bmSAMPLEBUS);                                               // update the JSTATUS and KSTATUS bits
     MAX_busprobe();                                                             //check if anything is connected
     MAXreg_wr( rCPUCTL, 0x01 );                                                 //enable interrupt pin

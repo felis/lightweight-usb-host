@@ -233,7 +233,9 @@
 void SPI_init( BYTE sync_mode, BYTE bus_mode, BYTE smp_phase );
 BYTE SPI_wr( BYTE data );
 void MAXreg_wr(BYTE reg, BYTE val);
+void MAXbytes_wr( BYTE reg, BYTE nbytes, BYTE * data );
 BYTE MAXreg_rd(BYTE reg);
+void MAX_bytes_rd ( BYTE reg, BYTE nbytes, BYTE *data );
 void MAX3421E_reset( void );
 BOOL Vbus_power ( BOOL action );
 void MAX3421E_init( void );

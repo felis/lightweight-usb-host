@@ -14,6 +14,7 @@
 #include "cli.h"
 #include "USB.h"
 #include "usb_ch9.h"
+#include "transfer.h"
 
 
 //#define CLOCK	3	//milliseconds 			
@@ -50,6 +51,13 @@
 	#error USART Rx buffer size is not a power of 2
 #endif
 
+/* USB constants */
+/* time in milliseconds */
+#define USB_SETTLE_TIME 					200         //USB settle after reset
+#define USB_XFER_TIMEOUT					5000        //USB transfer timeout
+
+#define USB_NAK_LIMIT 200
+#define USB_RETRY_LIMIT 3
 
 
 #endif // _project_config_h
