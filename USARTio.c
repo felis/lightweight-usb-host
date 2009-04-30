@@ -17,12 +17,10 @@ extern volatile BYTE USART_Rx_tail;
  
 void USART_init(void)
 {
-//  SPBRG = 21;		//load baud rate divisor 115200@40MHz= 21 decimal high speed
 	SPBRG = 103;		//baud rate divisor 9600@64MHz low speed
-	// SPBRG = 25;			//baud rate generator 9600@16MHz
+	//SPBRG = 25;			//baud rate generator 9600@16MHz
 	TRISCbits.TRISC7 = 1;				//receive pin
 	TRISCbits.TRISC6 = 0;				//transmit pin
-//  TXSTA = 0x04;		//high speed baud rate	
   	
 	RCSTA = 0x80;		//enable serial port and serial port pins
 	IPR1bits.RCIP = 0;				//receive interrupt = low priority

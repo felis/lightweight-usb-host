@@ -49,11 +49,14 @@ descriptor.  Then we check the VID and PID and make sure they appear in the TPL.
 */
 
 #define USB_STATE_ATTACHED										0x10
-#define USB_ATTACHED_SUBSTATE_RESET_DEVICE						0x11
-#define USB_ATTACHED_SUBSTATE_WAIT_RESET_COMPLETE				0x12
-#define USB_ATTACHED_SUBSTATE_GET_DEVICE_DESCRIPTOR_SIZE        0x13
-#define USB_ATTACHED_SUBSTATE_GET_DEVICE_DESCRIPTOR				0x14
-#define USB_ATTACHED_SUBSTATE_VALIDATE_VID_PID					0x15
+#define USB_ATTACHED_SUBSTATE_SETTLE                            0x11
+#define USB_ATTACHED_SUBSTATE_RESET_DEVICE						0x12
+#define USB_ATTACHED_SUBSTATE_WAIT_RESET_COMPLETE				0x13
+#define USB_ATTACHED_SUBSTATE_WAIT_SOF                          0x14
+#define USB_ATTACHED_SUBSTATE_GET_DEVICE_DESCRIPTOR_SIZE        0x15
+//#define USB_ATTACHED_SUBSTATE_GET_DEVICE_DESCRIPTOR				0x16
+//#define USB_ATTACHED_SUBSTATE_VALIDATE_VID_PID					0x17
+//#define USB_ATTACHED_SUBSTATE_VALIDATE_CLSP                     0x18
 
 /*
 *******************************************************************************
@@ -187,99 +190,30 @@ HOLDING state machine values
 #define INPUT_REPORT    1
 
 
-//******************************************************************************
-//******************************************************************************
-// Section: Macros
+////******************************************************************************
+////******************************************************************************
+//// Section: Macros
+////
+//// These macros are all internal to the host layer.
+////******************************************************************************
+////******************************************************************************
 //
-// These macros are all internal to the host layer.
-//******************************************************************************
-//******************************************************************************
-
-#define _USB_InitErrorCounters()        { numCommandTries   = USB_NUM_COMMAND_TRIES; }
-#define _USB_SetDATA01(x)               { pCurrentEndpoint->status.bfNextDATA01 = x; }
-#define _USB_SetErrorCode(x)            { usbDeviceInfo.errorCode = x; }
-#define _USB_SetHoldState()             { usbHostState = STATE_HOLDING; }
-#define _USB_SetNextState()             { usbHostState = (usbHostState & STATE_MASK) + NEXT_STATE; }
-#define _host_tasks_SetNextSubState()   { host_tasks_state =( host_tasks_state & (STATE_MASK | SUBSTATE_MASK)) + NEXT_SUBSTATE; }
-#define _USB_SetNextSubSubState()       { usbHostState =  usbHostState + NEXT_SUBSUBSTATE; }
-#define _USB_SetNextTransferState()     { pCurrentEndpoint->transferState ++; }
-#define _USB_SetPreviousSubSubState()   { usbHostState =  usbHostState - NEXT_SUBSUBSTATE; }
-#define _USB_SetTransferErrorState(x)   { x->transferState = (x->transferState & TSTATE_MASK) | TSUBSTATE_ERROR; }
-#define freez(x)                        { free(x); x = NULL; }
+//#define _USB_InitErrorCounters()        { numCommandTries   = USB_NUM_COMMAND_TRIES; }
+//#define _USB_SetDATA01(x)               { pCurrentEndpoint->status.bfNextDATA01 = x; }
+//#define _USB_SetErrorCode(x)            { usbDeviceInfo.errorCode = x; }
+//#define _USB_SetHoldState()             { usbHostState = STATE_HOLDING; }
+//#define _USB_SetNextState()             { usbHostState = (usbHostState & STATE_MASK) + NEXT_STATE; }
+//#define _host_tasks_SetNextSubState()   { host_tasks_state =( host_tasks_state & (STATE_MASK | SUBSTATE_MASK)) + NEXT_SUBSTATE; }
+//#define _USB_SetNextSubSubState()       { usbHostState =  usbHostState + NEXT_SUBSUBSTATE; }
+//#define _USB_SetNextTransferState()     { pCurrentEndpoint->transferState ++; }
+//#define _USB_SetPreviousSubSubState()   { usbHostState =  usbHostState - NEXT_SUBSUBSTATE; }
+//#define _USB_SetTransferErrorState(x)   { x->transferState = (x->transferState & TSTATE_MASK) | TSUBSTATE_ERROR; }
+//#define freez(x)                        { free(x); x = NULL; }
 
 /* data structures */
 
-/* inspired by Linux URB */
-/* number of bytes in URB and another in setup packet - redundant */
-typedef struct _USB_REQUEST_BLOCK {
-	BYTE addr;						//peripheral address
-	BYTE ep;						//endpoint
-	WORD nbytes;					//bytes to transfer
-	BYTE *status_ptr;				//completion status
-	// xQueueHandle USBdataQ;			//transfer data queue
-	struct {
-    	union {							// offset   description
-        	BYTE bmRequestType;			//   0      Bit-map of request type
-        	struct {
-            	BYTE    recipient:  5;	//          Recipient of the request
-            	BYTE    type:       2;	//          Type of request
-            	BYTE    direction:  1;	//          Direction of data X-fer
-        		};
-    	}reqtype_u;
-		BYTE	bRequest;				//   1      Request
-		union {
-    		WORD	wValue;				//   2      Depends on bRequest
-    		struct {
-    			BYTE	wValueLo;
-    			BYTE	wValueHi;
-    		};
-		}wValue_u;
-    	WORD	wIndex;					//   4      Depends on bRequest
-    	WORD	wLength;				//   6      Depends on bRequest
-	}setup_pkt;
-}URB;
 
-//#define STATUS_DATA_READY	0x01
-//#define STATUS_XFER_DONE	0x00
-//#define ERROR				0x80
-//#define UNDEFINED			0xff
 
-/* Endpoint information structure 				*/
-/* bToggle of endpoint 0 initialized to 0xff	*/
-/* during enumeration bToggle is set to 00		*/
-typedef struct _EP_RECORD {		
-	BYTE bEndpointAddress;		//copy from endpoint descriptor. Bit 7 indicates direction ( ignored for control endpoints )
-	BYTE bmAttributes;      	// Endpoint transfer type.
-    WORD wMaxPacketSize;    	// Maximum packet size.
-    BYTE bInterval;         	// Polling interval in frames.
-    BYTE bToggle;				//last toggle value, may change to a pointer in future versions
-} EP_RECORD;
-
-/* Device information structure */
-typedef struct _DEV_RECORD {			
-	// WORD idVendor;					//VID
-	// WORD idProduct;					//PID
-	BYTE config;
-	EP_RECORD *eplist_ptr;				//pointer to the list of endpoint parameters
-} DEV_RECORD;
-
-/* targeted peripheral list */
-typedef struct _USB_TPL {
-	union {
-		DWORD val;
-		struct {
-			WORD idVendor;
-			WORD idProduct;
-		};
-		struct {
-			BYTE bClass;
-			BYTE bSubClass;
-			BYTE bProtocol;
-		};
-	}device_u;
-	BYTE bConfiguration;
-	BYTE ClientDriver;
-}USB_TPL;
 
 // *****************************************************************************
 /* USB Mass Storage Device Information
@@ -316,24 +250,24 @@ typedef struct _USB_MSD_DEVICE_INFO
     BYTE                                attemptsCSW;            // Number of attempts to retrieve the CSW.
 } USB_MSD_DEVICE_INFO;
 
-/* class driver event handler	*/
-typedef BOOL (* rom CLASS_EVENT_HANDLER) ( BYTE address, BYTE event, void *data, DWORD size );
-
-/* class driver initialization */
-typedef BOOL (* rom CLASS_INIT)   ( BYTE address, DWORD flags );
-
-// *****************************************************************************
-/* Client Driver Table Structure
-
- */
-
-typedef struct _CLASS_CALLBACK_TABLE
-{
-    CLASS_INIT          Initialize;     // Initialization routine
-    CLASS_EVENT_HANDLER EventHandler;   // Event routine
-    DWORD                    flags;          // Initialization flags
-
-} CLASS_CALLBACK_TABLE;
+///* class driver event handler	*/
+//typedef BOOL (* rom CLASS_EVENT_HANDLER) ( BYTE address, BYTE event, void *data, DWORD size );
+//
+///* class driver initialization */
+//typedef BOOL (* rom CLASS_INIT)   ( BYTE address, DWORD flags );
+//
+//// *****************************************************************************
+///* Client Driver Table Structure
+//
+// */
+//
+//typedef struct _CLASS_CALLBACK_TABLE
+//{
+//    CLASS_INIT          Initialize;     // Initialization routine
+//    CLASS_EVENT_HANDLER EventHandler;   // Event routine
+//    DWORD                    flags;          // Initialization flags
+//
+//} CLASS_CALLBACK_TABLE;
 
 //* Functions	*/
 //

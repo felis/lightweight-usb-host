@@ -255,4 +255,7 @@ typedef union _QWORD_VAL
         unsigned char b63:1;
     } bits;
 } QWORD_VAL;
+
+#define NULL 0
+
 #endif //__GENERIC_TYPE_DEFS_H_

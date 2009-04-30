@@ -18,53 +18,53 @@ Description:
 
 
 
-// *****************************************************************************
-/* USB Device Descriptor Structure
-
-This struct defines the structure of a USB Device Descriptor.  Note that this
-structure may need to be packed, or even accessed as bytes, to properly access
-the correct fields when used on some device architectures.
-*/
-typedef struct _USB_DEVICE_DESCRIPTOR {
-    BYTE bLength;               // Length of this descriptor.
-    BYTE bDescriptorType;       // DEVICE descriptor type (USB_DESCRIPTOR_DEVICE).
-    union {
-    	WORD bcdUSB;			// USB Spec Release Number (BCD).
-		struct {
-			BYTE bcdUSBLo;
-			BYTE bcdUSBHi;
-		};
-	} bcdUSB_u;
-    BYTE bDeviceClass;          // Class code (assigned by the USB-IF). 0xFF-Vendor specific.
-    BYTE bDeviceSubClass;       // Subclass code (assigned by the USB-IF).
-    BYTE bDeviceProtocol;       // Protocol code (assigned by the USB-IF). 0xFF-Vendor specific.
-    BYTE bMaxPacketSize0;       // Maximum packet size for endpoint 0.
-    union {
-    	WORD idVendor;			// Vendor ID (assigned by the USB-IF).
-    	struct {
-    		BYTE idVendorLo;
-    		BYTE idVendorHi;
-    	};
-    }idVendor_u;
-    union { 
-    	WORD idProduct;			// Product ID (assigned by the manufacturer).
-    	struct {
-    		BYTE idProductLo;
-    		BYTE idProductHi;
-    	};
-    }idProduct_u;
-    union {
-	    WORD bcdDevice;             // Device release number (BCD).
-    	struct {
-    		BYTE bcdDeviceLo;
-    		BYTE bcdDeviceHi;
-    	};
-    }bcdDevice_u;	
-    BYTE iManufacturer;         // Index of String Descriptor describing the manufacturer.
-    BYTE iProduct;              // Index of String Descriptor describing the product.
-    BYTE iSerialNumber;         // Index of String Descriptor with the device's serial number.
-    BYTE bNumConfigurations;    // Number of possible configurations.
-} USB_DEVICE_DESCRIPTOR;
+//// *****************************************************************************
+///* USB Device Descriptor Structure
+//
+//This struct defines the structure of a USB Device Descriptor.  Note that this
+//structure may need to be packed, or even accessed as bytes, to properly access
+//the correct fields when used on some device architectures.
+//*/
+//typedef struct _USB_DEVICE_DESCRIPTOR {
+//    BYTE bLength;               // Length of this descriptor.
+//    BYTE bDescriptorType;       // DEVICE descriptor type (USB_DESCRIPTOR_DEVICE).
+//    union {
+//    	WORD bcdUSB;			// USB Spec Release Number (BCD).
+//		struct {
+//			BYTE bcdUSBLo;
+//			BYTE bcdUSBHi;
+//		};
+//	} bcdUSB_u;
+//    BYTE bDeviceClass;          // Class code (assigned by the USB-IF). 0xFF-Vendor specific.
+//    BYTE bDeviceSubClass;       // Subclass code (assigned by the USB-IF).
+//    BYTE bDeviceProtocol;       // Protocol code (assigned by the USB-IF). 0xFF-Vendor specific.
+//    BYTE bMaxPacketSize0;       // Maximum packet size for endpoint 0.
+//    union {
+//    	WORD idVendor;			// Vendor ID (assigned by the USB-IF).
+//    	struct {
+//    		BYTE idVendorLo;
+//    		BYTE idVendorHi;
+//    	};
+//    }idVendor_u;
+//    union { 
+//    	WORD idProduct;			// Product ID (assigned by the manufacturer).
+//    	struct {
+//    		BYTE idProductLo;
+//    		BYTE idProductHi;
+//    	};
+//    }idProduct_u;
+//    union {
+//	    WORD bcdDevice;             // Device release number (BCD).
+//    	struct {
+//    		BYTE bcdDeviceLo;
+//    		BYTE bcdDeviceHi;
+//    	};
+//    }bcdDevice_u;	
+//    BYTE iManufacturer;         // Index of String Descriptor describing the manufacturer.
+//    BYTE iProduct;              // Index of String Descriptor describing the product.
+//    BYTE iSerialNumber;         // Index of String Descriptor with the device's serial number.
+//    BYTE bNumConfigurations;    // Number of possible configurations.
+//} USB_DEVICE_DESCRIPTOR;
 
 
 // *****************************************************************************
@@ -271,18 +271,18 @@ typedef struct _USB_DESCRIPTOR_BUFFER {
 
 
 
-typedef struct _DEVICE_INFO {
-	BYTE device_address;
-	BYTE num_config;
-	BYTE ep0_max_pktsize;
-	//BYTE ep0_toggle;
-	BYTE ep_bulkout_number;
-	BYTE ep_bulkout_maxpktsize;
-	BYTE eb_bulkout_toggle;
-	BYTE ep_bulkin_number;
-	BYTE ep_bulkin_maxpktsize;
-	BYTE ep_bulkin_toggle;
-} DEVICE_INFO;
+//typedef struct _DEVICE_INFO {
+//	BYTE device_address;
+//	BYTE num_config;
+//	BYTE ep0_max_pktsize;
+//	//BYTE ep0_toggle;
+//	BYTE ep_bulkout_number;
+//	BYTE ep_bulkout_maxpktsize;
+//	BYTE eb_bulkout_toggle;
+//	BYTE ep_bulkin_number;
+//	BYTE ep_bulkin_maxpktsize;
+//	BYTE ep_bulkin_toggle;
+//} DEVICE_INFO;
 
 
 // ******************************************************************

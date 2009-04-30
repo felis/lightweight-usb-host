@@ -6,6 +6,8 @@
 /* define MCU family and configuration fuses if any */
 #include <p18cxxx.h>
 #include <delays.h>
+#include <string.h>
+
 
 #include "GenericMacros.h"
 #include "GenericTypeDefs.h"
@@ -58,6 +60,7 @@
 
 #define USB_NAK_LIMIT 200
 #define USB_RETRY_LIMIT 3
+
 
 
 #endif // _project_config_h

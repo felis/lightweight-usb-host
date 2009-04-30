@@ -82,10 +82,11 @@ void main ( void )
     CLI_init();
     SPI_init (SPI_FOSC_4, MODE_00, SMPMID);
     MAX3421E_init();
+    USB_init();
     while(1) {
         CLI_Task();
         MAX3421E_Task();
-//      USB_task();
+        USB_Task();
     }
 }
 
