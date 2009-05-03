@@ -2087,20 +2087,20 @@ GroupRS232 Example121-1True0False028False009600True12False0
 GroupCAN Example121-1True0False04125000012True0.750True0.25
 GroupSPI Out1216True3,1,4False0108True0False0.00000100.0000102400FalseFalseFalseTrue
 GroupSPI IN12110True2,1,4False0108True0False0.00000100.0000102400FalseFalseFalseTrue
-Row0False-12850False1True-1
-Row1False-12850False1True-1
-Row2False-12850False1True-1
+Row0False-12852False1True-1
+Row1False-12852False1True-1
+Row2False-12852False1True-1
 Row3False-12851False1True-1
-Row4False-12851False1True-1
+Row4False-12852False1True-1
 Row7False-1285-1False2True-1
 Row3False62851False1False-1
-Row1False62850False1False-1
-Row4False62851False1False-1
+Row1False62852False1False-1
+Row4False62852False1False-1
 Row8False-1285-1False2True-1
-Row2False102850False1False-1
-Row1False102850False1False-1
-Row4False102851False1False-1
-Row5False-12850False1True-1
+Row2False102852False1False-1
+Row1False102852False1False-1
+Row4False102852False1False-1
+Row5False-12852False1True-1
 Column40650 
 Column50650 
 Column10650 
