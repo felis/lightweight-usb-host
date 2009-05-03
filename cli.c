@@ -7,41 +7,33 @@
 
 extern DWORD uptime;
 
-static enum { 	CLI_MAIN_MENU, CLI_SHOW_MENU, CLI_SET_MENU, CLI_USBQ_MENU, CLI_USBT_MENU, CLI_UTIL_MENU
-	} cli_state = CLI_MAIN_MENU;	//CLI states
-	
+
+#define NUM_MENUS 6     //number of top-level menus
+/* menu position in function pointer array */
+static enum {
+    CLI_MAIN_MENU = 0,
+    CLI_SHOW_MENU = 1,
+    CLI_SET_MENU =  2,
+    CLI_USBQ_MENU = 3,
+    CLI_USBT_MENU = 4,
+    CLI_UTIL_MENU = 5
+} cli_state = CLI_MAIN_MENU;	//CLI states
+/* array of function pointers to top-level menus */	
+static void ( * const rom menu[ NUM_MENUS ] )( void ) = {
+    CLI_main_menu,
+    CLI_show_menu,
+    CLI_set_menu,
+    CLI_usbq_menu,
+    CLI_usbt_menu,
+    CLI_util_menu
+};
+    
 
 /* CLI main loop state machine */
 void CLI_Task( void )
 {
-	switch ( cli_state ) {
-		case (CLI_MAIN_MENU):
-			CLI_main_menu();
-			break;
-		/**/			
-		case (CLI_SHOW_MENU):				/* SHOW... states	*/
-			CLI_show_menu();
-			break;
-		/**/
-		case (CLI_SET_MENU):				/* SET... states	*/
-			CLI_set_menu();
-			break;
-		/**/	
-		case (CLI_USBQ_MENU):				/* USB queries states	*/
-			CLI_usbq_menu();
-			break;
-		/**/		
-		case (CLI_USBT_MENU):				/* USB transfers states	*/
-			CLI_usbt_menu();
-			break;
-		/**/
-		case (CLI_UTIL_MENU):				/* Utilities ... states */
-			CLI_util_menu();
-			break;
-		/**/	
-		default:
-			break;
-	}
+    menu[ cli_state ]();    //call top-level menu according to current state
+    return;
 }
 
 /* root level CLI */
@@ -131,7 +123,7 @@ void CLI_show_menu( void )
 			send_string(cli_prompt_show);
 			break;
 		case( 0x33 ):						//3 - Print USB task state
-			send_string("USB task state: ");
+			send_string("\r\nUSB task state: ");
 			send_hexbyte( Get_UsbTaskState());
 			send_string(cli_prompt_show);
 			break;
@@ -206,8 +198,7 @@ void CLI_usbt_menu( void )
 /* state CLI_SHOW_MENU */
 void CLI_util_menu( void )
 {
-		BYTE temp;
-//		BYTE i;
+ BYTE temp;
 	
 	if(!CharInQueue())
 		return;
@@ -228,7 +219,7 @@ void CLI_util_menu( void )
 			break;
 		case( 0x31 ):						//"1 - test SPI"
 			SPI_test();
-			//send_string(cli_prompt_show);
+			send_string( cli_prompt_util );
 			break;
 		case( 0x32 ):
 			//print_registers();													//"2 - show registers"

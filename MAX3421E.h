@@ -232,9 +232,9 @@
 /* MAX3421E.c function prototypes	*/
 void SPI_init( BYTE sync_mode, BYTE bus_mode, BYTE smp_phase );
 BYTE SPI_wr( BYTE data );
-void MAXreg_wr(BYTE reg, BYTE val);
+void MAXreg_wr( BYTE reg, BYTE val );
 char* MAXbytes_wr( BYTE reg, BYTE nbytes, BYTE * data );
-BYTE MAXreg_rd(BYTE reg);
+BYTE MAXreg_rd( BYTE reg );
 char* MAXbytes_rd ( BYTE reg, BYTE nbytes, BYTE *data );
 void MAX3421E_reset( void );
 BOOL Vbus_power ( BOOL action );
