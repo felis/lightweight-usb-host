@@ -17,6 +17,7 @@
 #include "USB.h"
 #include "usb_ch9.h"
 #include "transfer.h"
+#include "HID.h"
 
 
 //#define CLOCK	3	//milliseconds 			

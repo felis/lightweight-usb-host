@@ -98,7 +98,7 @@ void MAXreg_wr(BYTE reg, BYTE val)
 }
 /* multiple-byte write */
 /* returns a pointer to a memory position after last written */
-char* MAXbytes_wr( BYTE reg, BYTE nbytes, BYTE * data )
+char* MAXbytes_wr( BYTE reg, BYTE nbytes, char* data )
 {
     Select_MAX3421E;    //assert SS
     SPI_wr ( reg + 2 ); //set W/R bit and select register   
@@ -122,7 +122,7 @@ BYTE MAXreg_rd( BYTE reg )
 }
 /* multiple-bytes register read                             */
 /* returns a pointer to a memory position after last read   */
-char* MAXbytes_rd ( BYTE reg, BYTE nbytes, BYTE *data )
+char* MAXbytes_rd ( BYTE reg, BYTE nbytes, char* data )
 {
     Select_MAX3421E;    //assert SS
     SPI_wr ( reg );     //send register number
@@ -261,7 +261,6 @@ void MaxIntHandler( void )
         //}
         /* End HIRQ interrupts handling, clear serviced IRQs    */
         MAXreg_wr( rHIRQ, HIRQ_sendback );
-        Nop();
 }
 void MaxGpxHandler( void )
 {

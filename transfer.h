@@ -3,6 +3,16 @@
 #ifndef _transfer_h_
 #define _transfer_h_
 
+/* Targeted peripheral list table */
+#define USB_NUMTARGETS  4       //number of targets in TPL, not counting uninitialized device
+#define USB_NUMDEVICES  8       //number of supported devices
+#define USB_NUMCLASSES  3       //number of device classes in class callback table
+#define UNINIT          0       //uninitialized
+#define HID_K           1       //HID Keyboard driver number in DEV_RECORD
+#define HID_M           2       //HID Mouse driver number in DEV_RECORD
+#define MSD             3       //Mass storage class driver number in DEV_RECORD
+
+
 /* Standard Device Requests */
 
 #define USB_REQUEST_GET_STATUS                  0       // Standard Device Request - GET STATUS
@@ -46,13 +56,11 @@
 #define USB_DESCRIPTOR_OTG              0x09    // bDescriptorType for an OTG Descriptor.
 
 /* OTG SET FEATURE Constants    */
-
 #define OTG_FEATURE_B_HNP_ENABLE                3       // SET FEATURE OTG - Enable B device to perform HNP
 #define OTG_FEATURE_A_HNP_SUPPORT               4       // SET FEATURE OTG - A device supports HNP
 #define OTG_FEATURE_A_ALT_HNP_SUPPORT           5       // SET FEATURE OTG - Another port on the A device supports HNP
 
 /* USB Endpoint Transfer Types  */
-
 #define USB_TRANSFER_TYPE_CONTROL               0x00    // Endpoint is a control endpoint.
 #define USB_TRANSFER_TYPE_ISOCHRONOUS           0x01    // Endpoint is an isochronous endpoint.
 #define USB_TRANSFER_TYPE_BULK                  0x02    // Endpoint is a bulk endpoint.
@@ -68,6 +76,35 @@
 /* MSD class requests. Not part of chapter 9    */        
 #define USB_MSD_GET_MAX_LUN                 0xFE            // Device Request code to get the maximum LUN.
 #define USB_MSD_RESET                       0xFF            // Device Request code to reset the device.
+
+/* HID constants. Not part of chapter 9 */
+/* Class-Specific Requests */
+#define HID_REQUEST_GET_REPORT      0x01
+#define HID_REQUEST_GET_IDLE        0x02
+#define HID_REQUEST_GET_PROTOCOL    0x03
+#define HID_REQUEST_SET_REPORT      0x09
+#define HID_REQUEST_SET_IDLE        0x0A
+#define HID_REQUEST_SET_PROTOCOL    0x0B
+
+/* Class Descriptor Types */
+#define HID_DESCRIPTOR_HID      0x21
+#define HID_DESCRIPTOR_REPORT   0x22
+#define HID_DESRIPTOR_PHY       0x23
+
+/* Protocol Selection */
+#define BOOT_PROTOCOL   0x00
+#define RPT_PROTOCOL    0x01
+/* HID Interface Class Code */
+#define HID_INTF                    0x03
+/* HID Interface Class SubClass Codes */
+#define BOOT_INTF_SUBCLASS          0x01
+/* HID Interface Class Protocol Codes */
+#define HID_PROTOCOL_NONE           0x00
+#define HID_PROTOCOL_KEYBOAD        0x01
+#define HID_PROTOCOL_MOUSE          0x02
+
+
+
 
 /* USB Setup Packet Structure   */
 typedef struct {
@@ -91,58 +128,26 @@ typedef struct {
     WORD    wLength;                //   6      Depends on bRequest
 } SETUP_PKT, *PSETUP_PKT;
 
-/* Device descriptor structure */
-typedef struct {
-    BYTE bLength;               // Length of this descriptor.
-    BYTE bDescriptorType;       // DEVICE descriptor type (USB_DESCRIPTOR_DEVICE).
-    union {
-        WORD bcdUSB;            // USB Spec Release Number (BCD).
-        struct {
-            BYTE bcdUSBLo;
-            BYTE bcdUSBHi;
-        };
-    } bcdUSB_u;
-    BYTE bDeviceClass;          // Class code (assigned by the USB-IF). 0xFF-Vendor specific.
-    BYTE bDeviceSubClass;       // Subclass code (assigned by the USB-IF).
-    BYTE bDeviceProtocol;       // Protocol code (assigned by the USB-IF). 0xFF-Vendor specific.
-    BYTE bMaxPacketSize0;       // Maximum packet size for endpoint 0.
-    WORD idVendor;              // Vendor ID (assigned by the USB-IF).
-    WORD idProduct;             // Product ID (assigned by the manufacturer).
-    union {
-        WORD bcdDevice;             // Device release number (BCD).
-        struct {
-            BYTE bcdDeviceLo;
-            BYTE bcdDeviceHi;
-        };
-    }bcdDevice_u;   
-    BYTE iManufacturer;         // Index of String Descriptor describing the manufacturer.
-    BYTE iProduct;              // Index of String Descriptor describing the product.
-    BYTE iSerialNumber;         // Index of String Descriptor with the device's serial number.
-    BYTE bNumConfigurations;    // Number of possible configurations.
-} USB_DEVICE_DESCRIPTOR;
-
-/* Misc.USB constants */
-#define DEV_DESCR_LEN   18      //device descriptor length
-
-
-/* Targeted peripheral list table */
-#define USB_NUMTARGETS 4        //number of targets in TPL, not counting uninitialized device
-#define USB_NUMDEVICES 8        //number of supported devices
-#define USB_NUMCLASSES 3        //number of device classes in class callback table
-#define MSD_DRIVER     0        //Mass storage class driver number in TPL
-
 /* Endpoint information structure               */
 /* bToggle of endpoint 0 initialized to 0xff    */
 /* during enumeration bToggle is set to 00      */
 typedef struct {        
-    BYTE Addr;          //copy from endpoint descriptor. Bit 7 indicates direction ( ignored for control endpoints )
+    BYTE epAddr;        //copy from endpoint descriptor. Bit 7 indicates direction ( ignored for control endpoints )
     BYTE Attr;          // Endpoint transfer type.
     WORD MaxPktSize;    // Maximum packet size.
     BYTE Interval;      // Polling interval in frames.
-    BYTE Toggle;        //last toggle value, may change to a pointer in future versions
+    BYTE sndToggle;     //last toggle value, bitmask for HCTL toggle bits
+    BYTE rcvToggle;     //last toggle value, bitmask for HCTL toggle bits
+    /* not sure if both are necessary */
 } EP_RECORD;
+/* device record structure */
+typedef struct {
+    EP_RECORD* epinfo;      //device endpoint information
+    BYTE devclass;          //device class    
+} DEV_RECORD;
 
-/* targeted peripheral list */
+
+/* targeted peripheral list element */
 typedef struct {
     union {
         DWORD val;
@@ -156,20 +161,19 @@ typedef struct {
             BYTE bProtocol;
         };
     }dev_u;
-    BYTE bConfig;       //configuration
-    BYTE numep;         //number of endpoints
-    EP_RECORD* epinfo;
-    BYTE CltDrv;        //client driver 
-}USB_TPL;
-
-/* class driver event handler	*/
-typedef BOOL (* rom CLASS_EVENT_HANDLER) ( BYTE address, BYTE event, void *data, DWORD size );
-
+    BYTE bConfig;               //configuration
+    BYTE numep;                 //number of endpoints
+    EP_RECORD* epinfo;          //endpoint information structure
+    BYTE CltDrv;                //client driver
+    const rom char * desc;      //device description
+}USB_TPL_ENTRY;
+/* control transfer */
+typedef BYTE (* CTRL_XFER )( BYTE addr, BYTE ep, WORD nbytes, char* dataptr, BOOL direction );
 /* class driver initialization */
-typedef BOOL (* rom CLASS_INIT)   ( BYTE address, DWORD flags );
-
+typedef BOOL (* rom CLASS_INIT)( BYTE address, DWORD flags );
+/* class driver event handler	*/
+typedef BOOL (* rom CLASS_EVENT_HANDLER)( BYTE address, BYTE event, void *data, DWORD size );
 /* Client Driver Table Structure */
-
 typedef struct {
     CLASS_INIT          Initialize;     // Initialization routine
     CLASS_EVENT_HANDLER EventHandler;   // Event routine
@@ -177,10 +181,12 @@ typedef struct {
 } CLASS_CALLBACK_TABLE;
 
 /* Common setup data constant combinations  */
-
 #define bmREQ_GET_DESCR     USB_SETUP_DEVICE_TO_HOST|USB_SETUP_TYPE_STANDARD|USB_SETUP_RECIPIENT_DEVICE     //get descriptor request type
 #define bmREQ_SET           USB_SETUP_HOST_TO_DEVICE|USB_SETUP_TYPE_STANDARD|USB_SETUP_RECIPIENT_DEVICE     //set request type for all but 'set feature' and 'set interface'
 #define bmREQ_CL_GET_INTF   USB_SETUP_DEVICE_TO_HOST|USB_SETUP_TYPE_CLASS|USB_SETUP_RECIPIENT_INTERFACE     //get interface request type
+
+#define bmREQ_HIDOUT        USB_SETUP_HOST_TO_DEVICE|USB_SETUP_TYPE_CLASS|USB_SETUP_RECIPIENT_INTERFACE
+#define bmREQ_HIDIN         USB_SETUP_DEVICE_TO_HOST|USB_SETUP_TYPE_CLASS|USB_SETUP_RECIPIENT_INTERFACE 
 
 /* Function macros */
 
@@ -190,30 +196,44 @@ typedef struct {
 /* won't necessarily work for device in 'Configured' state          */
 #define XferSetAddr( oldaddr, ep, newaddr ) \
         XferCtrlReq( oldaddr,  ep, bmREQ_SET, USB_REQUEST_SET_ADDRESS, newaddr, 0x00, 0x0000, 0x0000, NULL )
-///* Set Configuration Request  */
-//#define bXferSetConf( addr, ep, confvalue, urb_ptr )      bXferCtrlReq( addr,     ep, 0x0000, ( bmREQ_SET ),          USB_REQUEST_SET_CONFIGURATION,  confvalue,  0x00,                           0x0000, urb_ptr )
+/* Set Configuration Request  */
+#define XferSetConf( addr, ep, conf_value )  \
+        XferCtrlReq( addr, ep, bmREQ_SET, USB_REQUEST_SET_CONFIGURATION, conf_value, 0x00, 0x0000, 0x0000, NULL )
 ///* Get configuration request  */
 //#define bXferGetConf( addr, ep, urb_ptr ) bXferCtrlReq( addr, ep, 1, ( bmREQ_GET_DESCR ), USB_REQUEST_GET_CONFIGURATION, 0x00, 0x00, 0x00, urb_ptr );
 /* Get device descriptor request macro */
 #define XferGetDevDescr( addr, ep, nbytes, dataptr )    \
         XferCtrlReq( addr, ep, bmREQ_GET_DESCR, USB_REQUEST_GET_DESCRIPTOR, 0x00, USB_DESCRIPTOR_DEVICE, 0x0000, nbytes, dataptr )
 ///* Get configuration descriptor request macro */  
-//#define bXferGetConfDescr( addr,ep,nbytes,conf,urb_ptr )  bXferCtrlReq( addr,     ep, nbytes, ( bmREQ_GET_DESCR ),    USB_REQUEST_GET_DESCRIPTOR,     conf,       USB_DESCRIPTOR_CONFIGURATION,   0x0000, urb_ptr )
+#define XferGetConfDescr( addr, ep, nbytes, conf, dataptr )  \
+        XferCtrlReq( addr, ep, bmREQ_GET_DESCR, USB_REQUEST_GET_DESCRIPTOR, conf, USB_DESCRIPTOR_CONFIGURATION, 0x0000, nbytes, dataptr )
 ///* Get string descriptor request macro    */ 
 //#define bXferGetStrDescr( addr, ep, nbytes, index, langid, urb_ptr ) bXferCtrlReq( addr, ep, nbytes, ( bmREQ_GET_DESCR ), USB_REQUEST_GET_DESCRIPTOR,     index,      USB_DESCRIPTOR_STRING,          langid, urb_ptr )
 ///* Get MAX LUN MSD class request macro */
 //#define bXferGetMaxLUN( addr, intf, urb_ptr ) bXferCtrlReq( addr, 0, 1, ( bmREQ_CL_GET_INTF ), USB_MSD_GET_MAX_LUN, 0, 0, intf, urb_ptr )
+/* class requests */
+#define XferSetProto( addr, ep, interface, protocol ) \
+        XferCtrlReq( addr, ep, bmREQ_HIDOUT, HID_REQUEST_SET_PROTOCOL, protocol, 0x00, interface, 0x0000, NULL )
+#define XferGetProto( addr, ep, interface, dataptr ) \
+        XferCtrlReq( addr, ep, bmREQ_HIDIN, HID_REQUEST_GET_PROTOCOL, 0x00, 0x00, interface, 0x0001, dataptr )        
+#define XferGetIdle( addr, ep, interface, reportID, dataptr ) \
+        XferCtrlReq( addr, ep, bmREQ_HIDIN, HID_REQUEST_GET_IDLE, reportID, 0, interface, 0x0001, dataptr )       
 
 
 
 /* Function prototypes */
 
-char XferCtrlReq( BYTE addr, BYTE ep, BYTE bmReqType, BYTE bRequest, BYTE wValLo, BYTE wValHi, WORD wInd, WORD nbytes, char* dataptr );
-char XferDispatchPkt( BYTE token, BYTE ep );
-char XferInTransfer( BYTE ep, WORD nbytes, BYTE *data, BYTE maxpktsize );
+BYTE XferCtrlReq( BYTE addr, BYTE ep, BYTE bmReqType, BYTE bRequest, BYTE wValLo, BYTE wValHi, WORD wInd, WORD nbytes, char* dataptr );
+BYTE XferCtrlData( BYTE addr, BYTE ep, WORD nbytes, char* dataptr, BOOL direction );
+BYTE XferCtrlND( BYTE addr, BYTE ep, WORD nbytes, char* dataptr, BOOL direction );
+//BYTE startCtrlReq( BYTE addr, BYTE ep, BYTE bmReqType, BYTE bRequest, BYTE wValLo, BYTE wValHi, WORD wInd, WORD nbytes, char* dataptr );
+BYTE XferDispatchPkt( BYTE token, BYTE ep );
+BYTE XferInTransfer( BYTE addr, BYTE ep, WORD nbytes, char* data, BYTE maxpktsize );
+//BYTE XferInTransfer_mps( BYTE ep, char* data, BYTE maxpktsize );
 void USB_init( void );
 void USB_Task( void );
-BYTE Get_UsbTaskState( void );
+BYTE GetUsbTaskState( void );
+DEV_RECORD* GetDevtable( BYTE index );
 
 /* Client driver routines */
 BOOL MSDProbe( BYTE address, DWORD flags );

@@ -17,13 +17,23 @@ const rom char *const rom cli_root_menu_help =
 
 const rom char *const rom cli_show_menu_help =
 "\r\n1 - print MAX3421E Registers\r\n"
-"2 - Show uptime\r\n"
-"3 - Show USB task state\r\n";
+"2 - Show USB task state\r\n"
+"3 - Show devices\r\n";
 
 const rom char *const rom cli_set_menu_help =
 "\r\n1 - Reset MAX3421E\r\n"
 "2 - turn Vbus on\r\n"
 "3 - turn Vbus off\r\n";
+
+const rom char *const rom cli_usbq_menu_help =
+"\r\n1 - print device descriptor\r\n"
+"2 - print configuration\r\n"
+"3 - Item 3\r\n";
+
+const rom char *const rom cli_usbt_menu_help =
+"\r\n1 - test mouse communication\r\n"
+"2 - Item 2\r\n"
+"3 - Item 3\r\n";
 
 const rom char *const rom cli_util_menu_help =
 "\r\n1 - Test SPI transfers\r\n"
@@ -35,21 +45,20 @@ const rom char *const rom angle = ">";
 const rom char *const rom cli_prompt_main = "\r\n(main).Press `?` for help>";
 const rom char *const rom cli_prompt_show = "\r\n(show)>";
 const rom char *const rom cli_prompt_set = "\r\n(set).Press `?` for help>";
+const rom char *const rom cli_prompt_usbq = "\r\n(usbq).Press `?` for help>";
+const rom char *const rom cli_prompt_usbt = "\r\n(usbt)>";
+const rom char *const rom cli_prompt_util = "\r\n(util)>";
 
 const rom char *const rom esc_prev_lvl = "<ESC> - previous level\r\n";
 const rom char *const rom cli_invalid_key = "\r\nInvalid key pressed\r\n";
 
-const rom char *const rom cli_prompt_usbq = "";
-const rom char *const rom cli_prompt_usbt = "";
-const rom char *const rom cli_prompt_util = "\r\n(util)>";
-
-/* Regiser names/numbers for MAX3421E_reg_dump()	*/
-typedef struct _REG_OUTPUT_FORMAT {
+/* Regiser names/numbers for MAX3421E register dump */
+typedef struct {
 	const rom char *const rom name;
 	const rom char number;
 }REGISTER_OUTPUT_FORMAT;
 
-const rom REGISTER_OUTPUT_FORMAT register_format[ 23 ] = {
+const rom REGISTER_OUTPUT_FORMAT register_format[] = {
 	{ "\r\nRCVFIFO:\t",		rRCVFIFO },
 	{ "\r\nSNDFIFO:\t",		rSNDFIFO },
 	{ "\r\nSUDFIFO:\t",		rSUDFIFO },
@@ -72,8 +81,18 @@ const rom REGISTER_OUTPUT_FORMAT register_format[ 23 ] = {
 	{ "\r\nPERADDR:\t",		rPERADDR },
 	{ "\r\nHCTL:\t\t",		rHCTL },
 	{ "\r\nHXFR:\t\t",		rHXFR },
-	{ "\r\nHRSL:\t\t",		rHRSL }
+	{ "\r\nHRSL:\t\t",		rHRSL },
+	{ NULL, 0 } //end of array
 };
+
+
+const rom char* const rom devclasses[] = {
+    " Uninitialized",
+    " HID Keyboard",
+    " HID Mouse",
+    " Mass storage"
+}; 
+
 
 typedef struct _UPTIME_FORMAT {
 	const rom DWORD divider;

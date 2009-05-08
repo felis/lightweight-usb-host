@@ -5,27 +5,36 @@
 
 #include "project_config.h"
 
-EP_RECORD dev0ep = {{ 0 }};         //Endpoint data structure to uninitialized device during enumeration
+EP_RECORD dev0ep = {{ 0 }};         //Endpoint data structure for uninitialized device during enumeration
 EP_RECORD msd_ep[ 3 ] = {{ 0 }};    //Mass storage bulk-only transport endpoints: 1 control and 2 bulk, IN and OUT
+//ep records for other classes are defined in class-specific modules
 
 /* macros to aid filling in TPL */
 #define INIT_VID_PID(v,p) 0x##p##v
 #define INIT_CL_SC_P(c,s,p) 0x##00##p##s##c
 
-const rom USB_TPL TplTable[ USB_NUMTARGETS + 1 ] = {
-// VID & PID or Client
-// Class, Subclass & Protocol Config Numep Eprecord Driver
-{ INIT_VID_PID( 0000, 0000 ), 0, 1, &dev0ep, 0 },
-{ INIT_VID_PID( 0781, 5406 ), 0, 3, msd_ep, MSD_DRIVER },	//Sandisk U3 Cruzer Micro
-//{ INIT_VID_PID( 0CF2, 6220 ), 0, 0 },	                    //ENE UB6220
-{ INIT_VID_PID( aaaa, 5555 ), 0, 1, NULL, 0 },	                //
-{ INIT_VID_PID( aaaa, 5555 ), 0, 1, NULL, 0 },	                //
-{ INIT_CL_SC_P( 08, 06, 50 ), 0, 3, msd_ep, MSD_DRIVER }	//Mass storage bulk only class
+//const rom USB_TPL_ENTRY TplTable[ USB_NUMTARGETS + 1 ] = {
+//// VID & PID or Client
+//// Class, Subclass & Protocol Config Numep Eprecord Driver
+//{ INIT_VID_PID( 0000, 0000 ), 0, 1, &dev0ep, 0, "Uninitialized" },
+//{ INIT_VID_PID( 0781, 5406 ), 0, 3, msd_ep, MSD_DRIVER, "Mass storage"  },	    //Sandisk U3 Cruzer Micro
+////{ INIT_VID_PID( 0CF2, 6220 ), 0, 0 },	                                        //ENE UB6220
+//{ INIT_CL_SC_P( 03, 01, 02 ), 0, 3, hid_ep, HIDM_DRIVER, "HID Mouse with Boot protocol" },	                //
+//{ INIT_VID_PID( aaaa, 5555 ), 0, 1, NULL, 0, NULL },	                //
+//{ INIT_CL_SC_P( 08, 06, 50 ), 0, 3, msd_ep, MSD_DRIVER, "Mass storage" }	    //Mass storage bulk only class
+//};
+
+/* control transfers function pointers */
+const rom CTRL_XFER ctrl_xfers[ 2 ] = {
+    XferCtrlND,
+    XferCtrlData
 };
 
-/* device table. Filled during enumeration  */
-/* position 0 is hard-linked to TPLTable[0] */
-const rom USB_TPL* devtable[ USB_NUMDEVICES + 1 ] = { TplTable };
+/* device table. Filled during enumeration              */
+/* index corresponds to device address                  */
+/* each entry contains pointer to endpoint structure    */
+/* and device class to use in various places            */             
+DEV_RECORD devtable[ USB_NUMDEVICES + 1 ];
 
 /* Client Driver Function Pointer Table	*/
 CLASS_CALLBACK_TABLE ClientDriverTable[ USB_NUMCLASSES ] = {
@@ -35,8 +44,8 @@ CLASS_CALLBACK_TABLE ClientDriverTable[ USB_NUMCLASSES ] = {
         0
     },
     {
-    	CDCProbe,				//CDC class device init
-    	CDCEventHandler,
+    	HIDMProbe,				//HID class device init
+    	HIDMEventHandler,
     	0
     },
     {
@@ -45,6 +54,7 @@ CLASS_CALLBACK_TABLE ClientDriverTable[ USB_NUMCLASSES ] = {
     	0
     }
 };
+/* Control transfer stages function pointer table */
 
 
 /* USB state machine related variables */
@@ -60,12 +70,21 @@ extern DWORD uptime;
 /* depending on request. Actual requests are defined as macros                                                                                      */
 /* return codes:                */
 /* 00       =   success         */
-/* 01-0f    =   non-zero HRSLT  */                  
-char XferCtrlReq( BYTE addr, BYTE ep, BYTE bmReqType, BYTE bRequest, BYTE wValLo, BYTE wValHi, WORD wInd, WORD nbytes, char* dataptr )
+/* 01-0f    =   non-zero HRSLT  */
+BYTE XferCtrlReq( BYTE addr, BYTE ep, BYTE bmReqType, BYTE bRequest, BYTE wValLo, BYTE wValHi, WORD wInd, WORD nbytes, char* dataptr )
 {
- char rcode;   
+ BOOL direction = FALSE;        //request direction, IN or OUT
+ BYTE datastage = 1; //request data stage present or absent
+ BYTE rcode;   
  SETUP_PKT setup_pkt;
+    if( dataptr == NULL ) {
+        datastage = 0;
+    }
     MAXreg_wr( rPERADDR, addr );                    //set peripheral address
+    /* fill in setup packet */
+    if( bmReqType & 0x80 ) {
+        direction = TRUE;                   //determine request direstion
+    }
     /* fill in setup packet */
     setup_pkt.ReqType_u.bmRequestType = bmReqType;
     setup_pkt.bRequest = bRequest;
@@ -78,73 +97,50 @@ char XferCtrlReq( BYTE addr, BYTE ep, BYTE bmReqType, BYTE bRequest, BYTE wValLo
     if( rcode ) {                                       //return HRSLT if not zero
         return( rcode );
     }
-    switch( bRequest ) {                            //switch by request
-        case( USB_REQUEST_GET_DESCRIPTOR ):
-            switch( wValHi ) {
-                case( USB_DESCRIPTOR_DEVICE ):
-                case( USB_DESCRIPTOR_CONFIGURATION ):
-                case( USB_DESCRIPTOR_STRING ):      
-                    MAXreg_wr( rHCTL, bmRCVTOG1 );       //set toggle to DATA1     
-                    rcode = XferInTransfer( ep, nbytes, dataptr, devtable[ addr ]->epinfo[ ep ].MaxPktSize );   //start IN transfer
-                    if( rcode ) {               //error handling
-                        return( rcode );
-                    }
-                    rcode = XferDispatchPkt( tokOUTHS, ep );   //terminate the transfer
-                    if( rcode ) {               //error handling
-                        return( rcode );
-                    }
-                    break;
-                case( USB_DESCRIPTOR_DEVICE_QUALIFIER ):
-                    break;
-                case( USB_DESCRIPTOR_OTHER_SPEED ):
-                    break;
-                case( USB_DESCRIPTOR_INTERFACE_POWER ):
-                    break;
-                case( USB_DESCRIPTOR_OTG ):
-                    break;
-                default:
-                    break;
-            }// switch( urb_local.setup_pkt.wValue_u.wValueHi )
-            break;//( USB_REQUEST_GET_DESCRIPTOR ):
-        case( USB_REQUEST_CLEAR_FEATURE ):      //requests of this group require Control write with no data stage
-        case( USB_REQUEST_SET_FEATURE ):        //the Setup packet has been already sent
-        case( USB_REQUEST_SET_ADDRESS ):        //all that needs to be done is Status packet
-        case( USB_REQUEST_SET_CONFIGURATION ):
-        case( USB_REQUEST_SET_INTERFACE ):
-            // 2. No data stage, so the last operation is to send an IN token to the peripheral
-            // as the STATUS (handshake) stage of this control transfer. We should get NAK or the
-            // DATA1 PID. When we get the DATA1 PID the 3421 automatically sends the closing ACK.
-            rcode = XferDispatchPkt( tokINHS, ep );
-            if( rcode ) {           //error handling
-                return( rcode );
-            }
-            break;
-        case( USB_REQUEST_GET_CONFIGURATION ):  
-        case( USB_MSD_GET_MAX_LUN ):
-            /* todo: move toggle to epinfo and read it in XferInTransfer */
-            MAXreg_wr( rHCTL, bmRCVTOG1 );     //set toggle to DATA1       
-            rcode = XferInTransfer( addr, nbytes, dataptr, devtable[ addr ]->epinfo[ ep ].MaxPktSize );
-            if( rcode ) {               //error handling
-                return( rcode );
-            }
-            rcode = XferDispatchPkt( tokOUTHS, ep );
-            if( rcode ) {               //error handling
-                return( rcode );
-            }
-        default:
-            break;
-    }//switch( urb_local.setup_pkt.bRequest )
+    rcode = ctrl_xfers[ datastage ]( addr, ep, nbytes, dataptr, direction );    //call data stage or no data stage transfer
+    return( rcode );
+}
+/* Control transfer with data stage */
+BYTE XferCtrlData( BYTE addr, BYTE ep, WORD nbytes, char* dataptr, BOOL direction )
+{
+  BYTE rcode;
+    
+    //MAXreg_wr( rHCTL, bmRCVTOG1 );       //set toggle to DATA1
+    if( direction ) {   //IN transfer
+        devtable[ addr ].epinfo[ ep ].rcvToggle = bmRCVTOG1;
+        rcode = XferInTransfer( addr, ep, nbytes, dataptr, devtable[ addr ].epinfo[ ep ].MaxPktSize );
+        if( rcode ) {
+        return( rcode );
+        }
+        rcode = XferDispatchPkt( tokOUTHS, ep );
+        return( rcode );
+    }
+    else {              //OUT not implemented
+        return( 0xff );
+    }    
+}
+/* Control transfer with status stage and no data stage */
+BYTE XferCtrlND( BYTE addr, BYTE ep, WORD nbytes, char* dataptr, BOOL direction )
+{
+  BYTE rcode;
+    if( direction ) { //GET
+        rcode = XferDispatchPkt( tokOUTHS, ep );
+    }
+    else {
+        rcode = XferDispatchPkt( tokINHS, ep );
+    }
+    return( rcode );
 }
 /* Dispatch a packet. Assumes peripheral address is set and, if necessary, sudFIFO-sendFIFO loaded. */
 /* Result code: 0 success, nonzero = error condition                                                */
 /* If NAK, tries to re-send up to USB_NAK_LIMIT times                                               */
 /* If bus timeout, re-sends up to USB_RETRY_LIMIT times                                             */
 /* return codes 0x00-0x0f are HRSLT( 0x00 being success ), 0xff means timeout                       */    
-char XferDispatchPkt( BYTE token, BYTE ep )
+BYTE XferDispatchPkt( BYTE token, BYTE ep )
 {
  DWORD timeout = uptime + USB_XFER_TIMEOUT;
  BYTE tmpdata;   
- char rcode;
+ BYTE rcode;
  char retry_count = 0;
  BYTE nak_count = 0;
 
@@ -184,56 +180,59 @@ char XferDispatchPkt( BYTE token, BYTE ep )
         else break;
     }//while( 1 )
     return( rcode );
-}   
+}
 /* IN transfer to arbitrary endpoint. Assumes PERADDR is set. Handles multiple packets if necessary. Transfers 'nbytes' bytes.
     Keep sending INs and writes data to memory area pointed by 'data' */
 /* rcode 0 if no errors. rcode 01-0f is relayed from prvXferDispatchPkt(). Rcode f0 means RCVDAVIRQ error,
             fe USB xfer timeout */
-char XferInTransfer( BYTE ep, WORD nbytes, BYTE *data, BYTE maxpktsize )
+BYTE XferInTransfer( BYTE addr/* not sure if it's necessary */, BYTE ep, WORD nbytes, char* data, BYTE maxpktsize )
 {
- BYTE rcode, i, pktsize, tmpdata;
- WORD xfrlen; //,xfrsize;
-
-    // xfrsize = nbytes;
-    xfrlen = 0;
-    
+ BYTE rcode;
+ BYTE i;
+ BYTE tmpbyte;
+ BYTE pktsize;
+ WORD xfrlen = 0;
+    MAXreg_wr( rHCTL, devtable[ addr ].epinfo[ ep ].rcvToggle );    //set toggle value
     while( 1 ) { // use a 'return' to exit this loop
         rcode = XferDispatchPkt( tokIN, ep );           //IN packet to EP-'endpoint'. Function takes care of NAKS.
         if( rcode ) {
-            return( rcode );                    //should be 0, indicating ACK. Else return error code.
+            return( rcode );                            //should be 0, indicating ACK. Else return error code.
         }
         /* check for RCVDAVIRQ and generate error if not present */ 
         /* the only case when absense of RCVDAVIRQ makes sense is when toggle error occured. Need to add handling for that */
-        if(!( MAXreg_rd( rHIRQ ) & bmRCVDAVIRQ )) {
-            return ( 0xf0 );                        //receive error
+        if(( MAXreg_rd( rHIRQ ) & bmRCVDAVIRQ ) == 0 ) {
+            return ( 0xf0 );                            //receive error
         }
-        pktsize = MAXreg_rd( rRCVBC );              //number of received bytes
+        pktsize = MAXreg_rd( rRCVBC );                  //number of received bytes
         data = MAXbytes_rd( rRCVFIFO, pktsize, data );
-        MAXreg_wr( rHIRQ, bmRCVDAVIRQ );             // Clear the IRQ & free the buffer
- 
-        xfrlen += pktsize;                          // add this packet's byte count to total transfer length
-//
-// The transfer is complete under two conditions:
-// 1. The device sent a short packet (L.T. maxPacketSize)
-// 2. 'nbytes' have been transferred.
-//
-        if (( pktsize < maxpktsize ) || (xfrlen >= nbytes /* xfrsize */ )) {    // have we transferred 'nbytes' bytes?
+        MAXreg_wr( rHIRQ, bmRCVDAVIRQ );                // Clear the IRQ & free the buffer
+        xfrlen += pktsize;                              // add this packet's byte count to total transfer length
+        /* The transfer is complete under two conditions:           */
+        /* 1. The device sent a short packet (L.T. maxPacketSize)   */
+        /* 2. 'nbytes' have been transferred.                       */
+        if (( pktsize < maxpktsize ) || (xfrlen >= nbytes )) {    // have we transferred 'nbytes' bytes?
+            if( MAXreg_rd( rHRSL ) & bmRCVTOGRD ) {                 //save toggle value
+                devtable[ addr ].epinfo[ ep ].rcvToggle = bmRCVTOG1;
+            }
+            else {
+                devtable[ addr ].epinfo[ ep ].rcvToggle = bmRCVTOG0;
+            }
             return( 0 );
         }
   }//while( 1 )
 }
-
 /* initialization of USB data structures */
 void USB_init( void )
 {
   BYTE i;
     for( i = 0; i < ( USB_NUMDEVICES + 1 ); i++ ) {
-        devtable[ i ] = NULL;   //clear device table			
+        devtable[ i ].epinfo = NULL;       //clear device table
+        devtable[ i ].devclass = 0;
     }
-    devtable[ 0 ] = TplTable;   //set pointer to uninitialized device
-    dev0ep.MaxPktSize = 0;	
-    dev0ep.Toggle = 0;			
-    // Nop();    
+    devtable[ 0 ].epinfo = &dev0ep;  //set single ep for uninitialized device  
+    dev0ep.MaxPktSize = 0;          	
+    dev0ep.sndToggle = bmSNDTOG0;   //set DATA0/1 toggles to 0
+    dev0ep.rcvToggle = bmRCVTOG0;
 }
 /* USB state machine. Connect/disconnect, enumeration, initialization   */
 /* error codes: 01-0f HRSLT        */
@@ -243,9 +242,7 @@ void USB_init( void )
 void USB_Task( void )
 {
  static DWORD usb_delay = 0;
- static char tmp_vidpid[ 4 ];
  static BYTE tmp_addr;
- //BYTE buf[ 64 ];
  USB_DEVICE_DESCRIPTOR buf;
 
  BYTE rcode, tmpdata;
@@ -299,10 +296,10 @@ void USB_Task( void )
                     }
                     break;//case( USB_ATTACHED_SUBSTATE_WAIT_SOF )
                 case( USB_ATTACHED_SUBSTATE_GET_DEVICE_DESCRIPTOR_SIZE ):   //send request for first 8 bytes of device descriptor
-                    devtable[ 0 ]->epinfo->MaxPktSize = 0x0008;             //fill max packet size with minimum allowed
+                    devtable[ 0 ].epinfo->MaxPktSize = 0x0008;             //fill max packet size with minimum allowed
                     rcode = XferGetDevDescr( 0, 0, 8, (char *)&buf );       //get device descriptor size
                     if( rcode == 0 ) {
-                        devtable[ 0 ]->epinfo->MaxPktSize = buf.bMaxPacketSize0;
+                        devtable[ 0 ].epinfo->MaxPktSize = buf.bMaxPacketSize0;
                         usb_task_state = USB_STATE_ADDRESSING;
                     }
                     else {
@@ -315,8 +312,9 @@ void USB_Task( void )
             break;//case ( USB_STATE_ATTACHED )
         case( USB_STATE_ADDRESSING ):   //give device an address
             for( i = 1; i < USB_NUMDEVICES; i++ ) {
-                if( devtable[ i ] == NULL ) {
-                    devtable[ i ] = devtable[ 0 ];  //copy unitialized device record to have correct MaxPktSize
+                if( devtable[ i ].epinfo == NULL ) {
+                    devtable[ i ].epinfo = devtable[ 0 ].epinfo;        //set correct MaxPktSize
+                    //devtable[ i ].epinfo->MaxPktSize = devtable[ 0 ].epinfo->MaxPktSize;  //copy unitialized device record to have correct MaxPktSize
                     rcode = XferSetAddr( 0, 0, i );
                     if( rcode == 0 ) {
                         tmp_addr = i;
@@ -365,7 +363,7 @@ void USB_Task( void )
 /* returns TRUE if device is successfuly identified and configured, otherwise returns FALSE */
 BOOL MSDProbe( BYTE addr, DWORD flags )
 {
-    return( TRUE );
+    return( FALSE );
 }				
 
 BOOL MSDEventHandler( BYTE address, BYTE event, void *data, DWORD size )
@@ -396,9 +394,13 @@ BOOL DummyEventHandler( BYTE address, BYTE event, void *data, DWORD size )
 {
 	return( FALSE );
 }
-
-
-BYTE Get_UsbTaskState( void )
+/* Function to access usb_task_state variable from outside */
+BYTE GetUsbTaskState( void )
 {
     return( usb_task_state );
+}
+/* Function to access devtable[] from outside */
+DEV_RECORD* GetDevtable( BYTE index )
+{
+    return( &devtable[ index ] );
 }

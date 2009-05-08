@@ -8,7 +8,7 @@
 
 #include "project_config.h"
 
-/* Global vars  */
+/* Global variables  */
 volatile DWORD uptime = 0;                      //system uptime. Gets updated every millisecond
 
 volatile BYTE USART_Tx_buf [ USART_RX_BUFSIZE ];

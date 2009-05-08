@@ -188,6 +188,8 @@
 #define bmSNDTOG0       0x40
 #define bmSNDTOG1       0x80
 
+
+
 #define rHXFR		0xf0	//30<<3
 /* Host transfer token values for writing the HXFR register (R30)	*/
 /* OR this bit field with the endpoint number in bits 3:0				*/
