@@ -3,6 +3,8 @@
 #ifndef _cli_h_
 #define _cli_h_
 
+//#include "GenericTypeDefs.h"
+
 /* Function declarations */ 
 
 void CLI_init( void );
@@ -21,6 +23,7 @@ void printEpDescr( char *byteptr );
 void printHIDdescr( char *byteptr );
 void testMouse ( BYTE addr );
 void testKbd( BYTE addr );
+// prevCodeComp( BYTE data, BOOT_KBD_REPORT* buf );
 void SPI_test( void );
 
 #endif // _cli_h_

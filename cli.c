@@ -2,6 +2,7 @@
 
 #define _CLI_C_
 
+#include <string.h>
 #include "project_config.h"
 #include "cli_constants.h"
 
@@ -31,7 +32,12 @@ static void ( * const rom top_menu[ NUM_MENUS ] )( void ) = {
 };
 
 char bigbuf[ 256 ];      
-static BYTE devaddr = 1;    //temporary assignment for the only device supported atm     
+static BYTE devaddr = 1;    //temporary assignment for the only device supported atm    
+
+/* Local prototypes */
+BOOL prevCodeComp( BYTE data, BOOT_KBD_REPORT* buf );
+BYTE HIDtoa( BOOT_KBD_REPORT* buf, BYTE index );
+ 
 
 /* CLI main loop state machine */
 void CLI_Task( void )
@@ -158,6 +164,7 @@ void CLI_show_menu( void )
 void CLI_set_menu( void )
 {
  BYTE temp;
+ BYTE rcode;
     if(!CharInQueue()) {
         return;
     }
@@ -184,14 +191,34 @@ void CLI_set_menu( void )
             else {
                 send_string("\r\nVbus is on\r\n");
             }
+            send_string(cli_set_menu_help);
             break;
         case( 0x33 ):                           //"3" - turn Vbus off
             Vbus_power( OFF );
             send_string("\r\nVbus is off\r\n");
+            send_string(cli_set_menu_help);
             break;
-        case( 0x34 ):                           //HID boot protocol on
+        case( 0x34 ):                           //set HID boot protocol
+            rcode = XferSetProto( 1, 0, hid_device.interface, BOOT_PROTOCOL );
+            if( rcode ) {   //error handling
+                send_string("\r\nError setting boot protocol. Rcode ");
+                send_hexbyte( rcode );
+            }
+            else {
+                send_string("\r\nBoot protocol set.");
+            }
+            send_string(cli_prompt_set);
             break;
-        case( 0x35 ):                           //HID boot protocol off
+        case( 0x35 ):                           //set HID report protocol
+            rcode = XferSetProto( 1, 0, hid_device.interface, RPT_PROTOCOL );
+            if( rcode ) {   //error handling
+                send_string("\r\nError setting report protocol. Rcode ");
+                send_hexbyte( rcode );
+            }
+            else {
+                send_string("\r\nReport protocol set.");
+            }
+            send_string(cli_prompt_set);        
             break;
         case( 0x3f ):                           //Question mark
             send_string(cli_set_menu_help);
@@ -522,11 +549,12 @@ void printHIDdescr( char* byteptr )
     send_string( crlf );
 }
 /* test mouse communication */
-/* in boot protocol mode buttons are not reported. Button press, however, generates an update. I can't find boot protocol descrition for mouse, */
+/* coordinates report work */
+/* Issue: in boot protocol mode buttons are not reported. Button press, however, generates an update. I can't find boot protocol description for mouse, */
 /* so maybe it's the way it should be */
 void testMouse ( BYTE addr )
 {
-  DWORD delay;
+  //DWORD delay;
   BYTE rcode;
   char tmpbyte;
   BOOT_MOUSE_REPORT buf;
@@ -552,10 +580,10 @@ void testMouse ( BYTE addr )
     }
     /* Polling interrupt endpoint */
     while( !CharInQueue() ) {
-        delay = uptime + 5;
-        while( uptime < delay );    //wait polling interval
+        //delay = uptime + 5;
+        //while( uptime < delay );    //wait polling interval
         rcode = mousePoll( &buf );
-        if( rcode == hrNAK ) {
+        if( rcode == hrNAK ) {          //NAK means no new data
             continue;
         }
         if( rcode ) {
@@ -570,10 +598,130 @@ void testMouse ( BYTE addr )
         send_hexbyte( buf.button );
     } 
 }
+/* keyboard communication demo              */
+/* only basic functions/keys are supported  */
 void testKbd( BYTE addr )
 {
+  char i;
+  BYTE rcode;
+  char tmpbyte;
+  char* byteptr;
+  BOOT_KBD_REPORT kbdbuf;
+  BOOT_KBD_REPORT localbuf;
+
+    rcode = XferGetIdle( addr, 0, hid_device.interface, 0, &tmpbyte );
+    if( rcode ) {   //error handling
+        send_string("\r\nGetIdle Error. Error code ");
+        send_hexbyte( rcode );
+    }
+    else {
+        send_string("\r\nUpdate rate: ");
+        send_decword( tmpbyte );
+    }
+    send_string("\r\nProtocol: ");
+    rcode = XferGetProto( addr, 0, hid_device.interface, &tmpbyte );
+    if( rcode ) {   //error handling
+        send_string("\r\nGetProto Error. Error code ");
+        send_hexbyte( rcode );
+    }
+    else {
+        send_decword( tmpbyte );
+        send_string( crlf );
+    }
+    send_string("\r\nType something on PIC keyboard. Press any key on PC keyboard to stop.\r\n");
+    /* Polling interrupt endpoint */
+    while( !CharInQueue() ) {
+        //delay = uptime + 5;
+        //while( uptime < delay );    //wait polling interval
+        rcode = kbdPoll( &kbdbuf );
+        if( rcode == hrNAK ) {          //NAK means no new data
+            continue;
+        }
+//        byteptr = ( char *)&kbdbuf;
+//        send_string( crlf );
+//        for( i = 0; i < 8; i++ ) {
+//            send_hexbyte( *byteptr );
+//            byteptr++;
+//        }
+        //send_string( crlf ); 
+        for( i = 0; i < 6; i++ ) {
+            if( kbdbuf.keycode[ i ] == 0 ) {        //empty position means it and all subsequent positions are empty
+                break;
+            }
+            if( prevCodeComp( kbdbuf.keycode[ i ], &localbuf ) == FALSE ) {
+//                send_hexbyte( kbdbuf.keycode[ i ] );
+                sendchar( HIDtoa( &kbdbuf, i ));
+//                send_string( crlf );
+            }
+        }
+        memcpy(( far char* )&localbuf, ( const far char* )&kbdbuf, sizeof( BOOT_KBD_REPORT ));    
+    }//while(CharInQueue()...
 }
-    
+/* function compares a key code with keycodes from previous report  */
+/* returns TRUE if match is found                                   */
+BOOL prevCodeComp( BYTE data, BOOT_KBD_REPORT* buf )
+{
+  BYTE i;
+    for( i = 0; i < 6; i++ ) {
+        if( buf->keycode[ i ] == data ) {
+            return( TRUE );
+        }
+    }
+    return( FALSE );     
+}
+/* function to convert HID keyboard code to ASCII */
+BYTE HIDtoa( BOOT_KBD_REPORT* buf, BYTE index  )
+{
+  BYTE HIDcode = buf->keycode[ index ];    
+  //BYTE AsciiVal;
+  //BYTE ShiftkeyStatus = 0;
+    /* symbols a-z,A-Z */
+    if( HIDcode >= 0x04 && HIDcode <= 0x1d ) {  
+        if( buf->mod.LShift || buf->mod.RShift ) {                          //uppercase 
+            return( HIDcode + 0x3d );
+        }
+        if( buf->mod.LCtrl || buf->mod.RCtrl ) {                            //Ctrl
+            return( HIDcode - 3 );
+        }
+        return( HIDcode + 0x5d );                             //lowercase
+    }
+    /* Numbers 1-9,0 */
+    if(  HIDcode >= 0x1e && HIDcode <= 0x27 ) {
+        if( buf->mod.LShift || buf->mod.RShift ) {                          //uppercase
+            switch( HIDcode ) {
+                case( 0x1f ):   //HID code for '2'
+                    return('@');
+                case( 0x23 ):   //HID code for '6'
+                    return('^');
+                case( 0x24 ):   //HID code for '7'
+                    return('&');    
+                case( 0x25 ):   //HID code for '8'
+                    return('*');
+                case( 0x26 ):   //HID code for '9'
+                    return('(');
+                case( 0x27 ):   //HID code for '0'
+                    return(')');     
+                default:        //1,3,4,5
+                    return( HIDcode + 3 );
+            }     
+        }
+        return( HIDcode + 0x13 );
+    }
+    /* Misc. non-modifiable keys in no particular order */
+    switch( HIDcode ) {
+        case( 0x28 ):       //Enter
+            return( 0x0d ); //CR
+        case( 0x29 ):       //ESC
+            return( 0x1b ); //ESC
+        case( 0x2c ):       //spacebar
+            return( 0x20 ); //
+        case( 0x36 ):       //comma
+            return(',');
+        case( 0x37 ):       //dot        
+            return('.');
+    } 
+    return( 0x07 );         //Bell 
+}    
 
 /* tests SPI transfers for errors. Cycles indefinitely until a key is pressed.  */
 /* Prints "." every 64K of transferred data                                     */

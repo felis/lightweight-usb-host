@@ -6,10 +6,10 @@
 /* Targeted peripheral list table */
 #define USB_NUMTARGETS  4       //number of targets in TPL, not counting uninitialized device
 #define USB_NUMDEVICES  8       //number of supported devices
-#define USB_NUMCLASSES  3       //number of device classes in class callback table
+#define USB_NUMCLASSES  4       //number of device classes in class callback table
 #define UNINIT          0       //uninitialized
-#define HID_K           1       //HID Keyboard driver number in DEV_RECORD
-#define HID_M           2       //HID Mouse driver number in DEV_RECORD
+#define HID_K           1       //HID Keyboard boot driver number in DEV_RECORD
+#define HID_M           2       //HID Mouse boot driver number in DEV_RECORD
 #define MSD             3       //Mass storage class driver number in DEV_RECORD
 
 
@@ -100,7 +100,7 @@
 #define BOOT_INTF_SUBCLASS          0x01
 /* HID Interface Class Protocol Codes */
 #define HID_PROTOCOL_NONE           0x00
-#define HID_PROTOCOL_KEYBOAD        0x01
+#define HID_PROTOCOL_KEYBOARD       0x01
 #define HID_PROTOCOL_MOUSE          0x02
 
 

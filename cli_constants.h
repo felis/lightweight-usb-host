@@ -23,7 +23,9 @@ const rom char *const rom cli_show_menu_help =
 const rom char *const rom cli_set_menu_help =
 "\r\n1 - Reset MAX3421E\r\n"
 "2 - turn Vbus on\r\n"
-"3 - turn Vbus off\r\n";
+"3 - turn Vbus off\r\n"
+"4 - set HID boot protocol\r\n"
+"5 - set HID report protocol\r\n";
 
 const rom char *const rom cli_usbq_menu_help =
 "\r\n1 - print device descriptor\r\n"
@@ -32,7 +34,7 @@ const rom char *const rom cli_usbq_menu_help =
 
 const rom char *const rom cli_usbt_menu_help =
 "\r\n1 - test mouse communication\r\n"
-"2 - Item 2\r\n"
+"2 - test keyboard communication\r\n"
 "3 - Item 3\r\n";
 
 const rom char *const rom cli_util_menu_help =
